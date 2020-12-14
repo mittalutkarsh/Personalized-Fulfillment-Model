@@ -1,0 +1,2582 @@
+
+--------------- Creating the Capacity table --------------------------
+
+-- update the capacity in the Volume vs capacity file
+-  Update the tab Upload sql server tab
+- Drop the table KK_Update_Capacity_ScenarioA
+- Import the data from the Upload sql server tab to the KK_Update_Capacity_ScenarioA
+
+
+
+-- Use the query for capacity modeling ----------
+
+
+Select DC_name, Convert(date, date_from) as date_from, Convert(date, Date_to) as Date_to, Scenario,
+Fiscal_Year, Convert(date, Not_in_Date ) as Not_in_Date, Capacity, Null  as Model_Scenario
+ from KK_Update_Capacity_ScenarioA
+
+-- Change the excel file with capacity from Jess
+
+
+---- uPLOAD THE FILE TO THE TABLE KK_Update_Capacity_ScenarioA
+
+
+Alter table [dbo].[KK_Update_Capacity_ScenarioA]
+Add  DC_id int
+
+update A
+set A.DC_ID = B.Model_DC_ID
+from [dbo].[KK_Update_Capacity_ScenarioA] AS A, KK_DC_XREF AS b
+WHERE A.DC_name = B.Model_DC
+
+--------------------------------------------------------
+
+
+
+Select * into scratch.dbo.KK_Capacity_Modeling from (
+ select Convert(date, Cal_Date) as Cal_Date, C.DC_ID as DC_id,
+ 
+
+'XXXXXXXX' as DC_name,
+B.day_hrs as Day_Hours,
+Convert(Date, Fis_Cal_date) as Fis_Cal_date,
+
+Fis_Mon_Day,
+Fiscal_Day,
+Fiscal_Month,
+Fiscal_Week,
+Fiscal_Year,
+99999999999999999 as Hrly, "XXXXXXXXXXXXXXXXXXXX" as Event_Network_Model
+  from 
+[dbo].[KK_Fiscal_Calendar_Network_Model], [dbo].[KK_Day_hrs_Xref] as B, (Select Distinct DC_id from KK_DC_XREF where DC_id <> 8 )as C
+where DC_Type = 'DC') as TT
+
+
+
+-- Import the one year capacity table KK_one_year_capacity data and update the fiscal attributes
+
+Update C
+
+set C.Fiscal_Month = B.Fiscal_Month , C.Fiscal_Year = B.Fiscal_Year, C.Fiscal_week = B.Fiscal_Week, C.Fiscal_day = B.Fiscal_Day,
+C.Fis_Mon_day = B.Fis_Mon_Day
+
+from [dbo].[KK_Fiscal_Calendar_Network_Model] as B, KK_one_year_capacity as C
+where CONVERT(date,c.Fis_Cal_Date) = convert(date,B.Cal_Date)
+
+-------------------------------------------------------------------------------
+
+--- Query for capacity modeling------
+
+select convert(Date, Fis_Cal_Date) as Fis_Cal_Date, DC_name,  "Event", round (Sum(Hrly) ,0) as Capacity from KK_one_year_capacity
+where DC_name = 'WEO'
+group by convert(Date, Fis_Cal_Date), DC_name, "Event"
+order by convert(Date, Fis_Cal_Date)
+----------------------------------------------------------
+
+Update scratch.dbo.KK_Capacity_Modeling
+set Hrly = 0
+
+---- uPDATE THE DC NAME IN THE scratch.dbo.KK_Capacity_Modeling 
+
+update A
+set A.DC_name = B.Model_DC
+from scratch.dbo.KK_Capacity_Modeling AS A, KK_DC_XREF AS b
+WHERE A.DC_id = B.Model_DC_ID
+
+
+----Create the [dbo].[KK_Update_Capacity_ScenarioA] table - uploaded from the access database  [dbo].[KK_Update_Capacity_ScenarioA]. table in access database to upload Duration_Capacity_With_Capacity
+
+
+- Updating only peak capacity
+Update A
+set A.Hrly = round(B.Capacity/9,0)
+from scratch.dbo.KK_Capacity_Modeling as A, [dbo].[KK_Update_Capacity_ScenarioA] as B
+where A.Cal_Date >= convert(Date, B.date_from) and Cal_Date <= convert(Date, B.date_to)
+--and A.DC_name not in ('OFC','WFC')
+and A.DC_name = B.DC_name
+
+and B.Not_in_date  is not null
+and A.Day_Hours in (7,8,9,10,11,12,13,14,15)
+
+
+-- Updating offpeak capacity
+Update A
+set A.Hrly = round(B.Capacity/9,0)
+from scratch.dbo.KK_Capacity_Modeling as A, [dbo].[KK_Update_Capacity_ScenarioA] as B
+where A.Cal_Date >= convert(Date, B.date_from) and Cal_Date <= convert(Date, B.date_to)
+--and A.DC_name not in ('OFC','WFC')
+and A.DC_name = B.DC_name
+
+and B.Not_in_date  is null
+and A.Day_Hours in (7,8,9,10,11,12,13,14,15)
+
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2017) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+------ DONT RUN THIS CODE FOR SCENARIO C STARTS Update the capacity for OFC and WFC----------
+
+
+
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2018) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2019) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2020) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2021) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2022) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+Update A
+set A.Hrly = C.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, 
+(select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2023) as B,
+KK_one_year_capacity  as C
+where A.DC_name in ('OFC','WFC')
+and A.DC_name = C.DC_name
+and A.Day_Hours = C.day_hours
+and a.Cal_Date >= B.Date_from and A.Cal_Date <= B.Date_to
+and A.Cal_Date = Convert(date, dateadd(day, B.No_of_days , C.fis_Cal_DAte))
+
+--- For scenario A WFC capacity - 2019 onwards
+update A
+set A.Hrly = Round (A.Hrly * 0.684,0)
+from scratch.dbo.KK_Capacity_Modeling as a
+where DC_name = 'WFC'
+and Fiscal_Year >= 2019
+
+
+------ DONT RUN THIS CODE FOR SCENARIO C ENDS Update the capacity for OFC and WFC----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------------
+
+
+
+
+
+-- Updating the capacity B/W 1/1/2017 AND 1/29/2017
+
+Update A
+set A.Hrly = B.Hrly
+from scratch.dbo.KK_Capacity_Modeling as A, KK_one_year_capacity as B
+where cal_Date < '2017-01-29'
+and cal_Date >= '2017-01-01'
+and A.Cal_Date = convert(date, B.fis_cal_DAte)
+and A.Day_Hours = B.day_hours
+and A.DC_name = B.Dc_name
+
+
+---------- Updating the capacity for three extra weeks model run
+update A
+set A.Hrly = B.hrly
+from scratch.dbo.KK_Capacity_Modeling as A , (select * from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date = '2024-02-03'  --- Update this date last date with the last date of the final year
+--and DC_id = 6
+and Day_Hours = 7) as B
+where A.dc_id = B.DC_id
+and A.cal_Date > '2024-02-03' --- Update this date last date with the last date of the final year
+and A.cal_Date <= '2024-03-05' --- Update this date last date with the last date + 3weeks of the final year
+and A.day_hours in (7,8,9,10,11,12,13,14,15)
+
+
+
+
+
+
+
+
+
+
+
+select * from scratch.dbo.KK_Capacity_Modeling as A
+where A.cal_Date >= '2024-02-03'
+and A.cal_Date <= '2024-03-05'
+and A.day_hours in (7,8,9,10,11,12,13,14,15)
+and DC_id = 6
+
+--- Inserting SFS and OCC
+
+insert into scratch.dbo.KK_Capacity_Modeling 
+select Cal_Date, 8 as DC_id,'SFS' as DC_name, Day_Hours, Fis_Cal_date, Fis_Mon_Day, Fiscal_Day, Fiscal_Month, Fiscal_Week,
+Fiscal_Year, 0 as Hrly, Event_Network_Model,Utilized_Capacity, Theortical_Max_Peak_Capacity, Utilized_Theortical_Max_Peak_Capacity from scratch.dbo.KK_Capacity_Modeling as A
+where DC_name = 'OFC'
+
+insert into scratch.dbo.KK_Capacity_Modeling 
+select Cal_Date, 7 as DC_id,'OCC' as DC_name, Day_Hours, Fis_Cal_date, Fis_Mon_Day, Fiscal_Day, Fiscal_Month, Fiscal_Week,
+Fiscal_Year, 0 as Hrly, Event_Network_Model,Utilized_Capacity, Theortical_Max_Peak_Capacity, Utilized_Theortical_Max_Peak_Capacity from scratch.dbo.KK_Capacity_Modeling as A
+where DC_name = 'OFC'
+
+
+
+
+
+
+
+
+---- Update the event column in the scratch.dbo.KK_Capacity_Modeling  ( I am keeping the same capacity for 2017 same as Hrly in all the columns Utilized capacity, Theo max, and  Utilized theo max 
+
+Update KK_Five_year_Attribute_Fiscal_Xref
+set No_of_weeks = 52 
+where Fiscal_Year not in (2017, 2023)
+
+
+update scratch.dbo.KK_Capacity_Modeling 
+set Event_Network_Model = 'OFF_PEAK'
+
+update scratch.dbo.KK_Capacity_Modeling 
+set Event_Network_Model = 'PEAK'
+where Fiscal_Week > = 43 and Fiscal_Week < = 48
+and Fiscal_Year in (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where No_of_weeks = 53)
+
+update scratch.dbo.KK_Capacity_Modeling 
+set Event_Network_Model = 'PEAK'
+where Fiscal_Week > = 43 and Fiscal_Week < = 47
+and Fiscal_Year in (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where No_of_weeks = 52)
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Event_Network_Model = 'Thanksgiving_Day'
+where Fiscal_Week = 43  -- this is based off because base fiscal year is 2017
+and Fiscal_Day = 5  -- this is based off because base fiscal year is 2017
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Event_Network_Model = 'Christmas_Day' -- this is based off because base fiscal year is 2017
+where Fiscal_Week = 48-- this is based off because base fiscal year is 2017
+and Fiscal_Day = 2 -- this is based off because base fiscal year is 2017
+
+
+--- Updating the dummy DC --- We are only updating the dummy dc for peak for now
+--  update the KK_Dummy_DC_Capacity_Scenario as per Jess dummy capacity input
+
+update A
+set A.Hrly = Round(B.Theortical_Max * B.Theortical_Max_Capacity_allocated/9,0)
+from scratch.dbo.KK_Capacity_Modeling as A, [KK_Dummy_DC_Capacity_Scenario]  as B
+where a.DC_id = b.Dummy_DC_id --- Only for the Dummy DC OCC
+and A.Fiscal_Year = B.Fiscal_Year
+and a.Fiscal_Week >= b.Fiscal_Starting_Week
+and a.Fiscal_Week <= b.Fiscal_Ending_Week
+and a.day_hours in (7,8,9,10,11,12,13,14,15)
+
+
+
+---- Validation of dummy
+
+select sum(hrly) from scratch.dbo.KK_Capacity_Modeling
+where DC_id = 7
+and Fiscal_Year = 2021
+--and Event_Network_Model = 'Peak'
+and Cal_Date = '2021-11-21'
+--and day_hours in (7,8,9,10,11,12,13,14,15)
+
+
+
+
+
+
+
+
+
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Capacity  = Hrly 
+where Fiscal_Year in (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Capacity  = Hrly * 0.9 --- 0.9 is the utilization factor * theortical max (First updating for all events)
+where Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Capacity  = Hrly * 0.3  -- 0.3 for the thanksgiving_Day
+where Event_Network_Model = 'Thanksgiving_Day'
+and Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Capacity  = Hrly * 0  -- 0 for the Christmas_Day
+where Event_Network_Model = 'Christmas_Day'
+and Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+
+Alter table scratch.dbo.KK_Capacity_Modeling 
+Add Theortical_Max_Peak_Capacity float
+
+update scratch.dbo.KK_Capacity_Modeling
+set Theortical_Max_Peak_Capacity  = 0
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Theortical_Max_Peak_Capacity   = Hrly 
+where Fiscal_Year in (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+alter table [dbo].[KK_Update_Capacity_ScenarioA]
+add DC_id int
+
+Update A
+set A.dc_id = B.Model_DC_ID
+from [dbo].[KK_Update_Capacity_ScenarioA] as A, KK_DC_XREF as B
+where A.DC_name = b.Model_DC
+
+
+
+update A
+set Theortical_Max_Peak_Capacity = round (B.Capacity/9, 0)
+from scratch.dbo.KK_Capacity_Modeling  as A, (select * from [dbo].[KK_Update_Capacity_ScenarioA]  where Scenario = '11_22 to 11_29'  ) as B -- '11_22 to 11_29' is the peak capacity scenario
+where A.DC_id = B.DC_id
+and A.Fiscal_Year = B.Fiscal_Year
+and A.Day_Hours in (7,8,9,10,11,12,13,14,15)
+and A.Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+Alter table scratch.dbo.KK_Capacity_Modeling 
+Add Utilized_Theortical_Max_Peak_Capacity float
+
+update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Theortical_Max_Peak_Capacity = Hrly 
+where Fiscal_Year in (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Theortical_Max_Peak_Capacity = Theortical_Max_Peak_Capacity  * 0.9
+where Fiscal_Year > (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Theortical_Max_Peak_Capacity = Theortical_Max_Peak_Capacity  * 0.3  -- for thanksgiving
+where Event_Network_Model = 'Thanksgiving_Day'
+and Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+Update scratch.dbo.KK_Capacity_Modeling 
+set Utilized_Theortical_Max_Peak_Capacity = Theortical_Max_Peak_Capacity  * 0  -- for Christmas
+where Event_Network_Model = 'Christmas_Day'
+and Fiscal_Year >  (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year' )
+
+
+
+-- Updating the three extra weeks 
+update A
+set A.Utilized_Theortical_Max_Peak_Capacity = B.Utilized_Theortical_Max_Peak_Capacity,
+A.Theortical_Max_Peak_Capacity = B.Theortical_Max_Peak_Capacity,
+A.Utilized_Capacity = B.Utilized_Capacity
+from scratch.dbo.KK_Capacity_Modeling as A , (select * from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date = '2024-01-27'  --- Update this date last date with the last date of the final year
+--and DC_id = 6
+and Day_Hours = 7) as B
+where A.dc_id = B.DC_id
+and A.cal_Date > '2024-01-27' --- Update this date last date with the last date of the final year
+and A.cal_Date <= '2024-03-05' --- Update this date last date with the last date + 3weeks of the final year
+and A.day_hours in (7,8,9,10,11,12,13,14,15)
+
+
+
+------ for dummy assuming theritical max = hrly (normal capacity) and utililized theoritical max = utilized capacity
+
+update KK_Capacity_Modeling
+set Theortical_Max_Peak_Capacity = hrly, Utilized_Theortical_Max_Peak_Capacity = Utilized_Capacity
+where DC_id = 7
+
+
+
+
+----- Validation ------------------------
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round (Avg(Hrly) *9,0) AS Capacity
+FROM scratch.dbo.KK_Capacity_Modeling AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B
+WHERE convert  (date, A.Cal_date) >= convert  (date,B.Date_from) and convert  (date, A.Cal_date) <= convert  (date,B.date_to)
+and  A.Dc_name = B.DC_name
+and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is null
+
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario
+
+union 
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round (Avg(Hrly) *9,0) AS Capacity
+FROM scratch.dbo.KK_Capacity_Modeling AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B
+WHERE convert  (date, A.Cal_date) >= convert  (date,B.Date_from) and convert  (date, A.Cal_date) <= convert  (date,B.date_to)
+and  A.Dc_name = B.DC_name
+and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is not null
+  and convert  (date, A.Cal_date) <> convert  (date,Not_in_date)
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario
+
+--- For OFC and WFC validation -------------------
+
+select sum (Variance) from (
+select A.Cal_Date, A.Hrly as A_capacity, B.Hrly as B_Capacity, A.Hrly - B.Hrly as Variance
+
+ from scratch.dbo.KK_Capacity_Modeling as A, KK_one_year_capacity as B
+where A.DC_name = 'WFC'
+and A.DC_name = B.DC_name
+and A.Fiscal_Year = B.fiscal_year
+and A.Cal_Date = B.fis_cal_Date
+and A.Day_Hours = B.day_hours
+and A.Cal_Date <='2018-02-03'
+--and A.Cal_Date = '2017-11-25'
+--order by  A.Hrly - B.Hrly asc
+) as TT
+
+
+--- Dummy Capacity validation
+
+select Fiscal_year, Avg(hrly) *9 from KK_Capacity_Modeling
+where DC_id = 7
+and Event_Network_Model = 'Peak'
+and Day_Hours in (7,8,9,10,11,12,13,14,15)
+group by Fiscal_year
+
+
+
+
+
+
+---- Utilized capacity validation
+
+select Event_Network_Model, sum(Utilized_Capacity)/sum(Hrly), sum(Utilized_Theortical_Max_Peak_Capacity)/sum(Theortical_Max_Peak_Capacity) from KK_Capacity_Modeling
+where Fiscal_Year > (select Fiscal_Year from KK_Five_year_Attribute_Fiscal_Xref where Year_Type = 'Base_Year')
+group by Event_Network_Model
+
+
+
+---- Data downloading for capacity -----------------------------
+
+
+
+
+select * from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date >= '2017-01-01'
+order by DC_id, cal_Date, Day_Hours
+--and DC_id = 7
+
+
+
+
+
+
+
+
+------------------------------------------------------------------------------------
+
+
+--------------- Fiscal calendar table Update Queries (WE DON'T NEED TO RUN IF THERE IS NOT ANY CHANGE IN THE FISCAL CALENDAR TABLE--------------------------
+
+-- Upload the Fiscal calendar Network model excel file in SQL server
+
+Alter table [dbo].[KK_Fiscal_Calendar_Network_Model]
+Add Year_Type Varchar(50)
+
+Alter table [dbo].[KK_Fiscal_Calendar_Network_Model]
+Add Growth Float
+
+
+
+
+Alter table [dbo].[KK_Fiscal_Calendar_Network_Model]  ---- Update this with "DC" or "SFS" 
+Add DC_Type varchar(50)
+
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+set DC_Type = 'DC'
+
+
+
+
+
+insert into [dbo].[KK_Fiscal_Calendar_Network_Model]
+SELECT [id_Dy]
+      ,[Fiscal_Year]
+      ,[Fiscal_Month]
+      ,[Fiscal_Week]
+      ,[Fiscal_Day]
+      ,[Fis_Mon_Day]
+      ,[Cal_Date]
+      ,[Fis_Cal_date]
+      ,[Special_Event]
+      ,[Key_HR]
+      ,[Year_type]
+      , null as [Growth]
+      ,'SFS' as [DC_Type]
+  FROM [dbo].[KK_Fiscal_Calendar_Network_Model]
+
+
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+Set Special_Event = 'OFF_PEAK'
+
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+Set Special_Event = 'PEAK'
+where Fiscal_week >= 43
+and Fiscal_week <= 47
+
+select * from [dbo].[KK_Five_year_Attribute_Fiscal_Xref]
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+  set Growth = 1
+
+--Where  DC_Type = 'SFS'
+where  YEAR_type = 'Base_Year'
+and Growth is null
+
+Update A
+Set a.Year_type = B.Year_Type, a.Growth = b.Growth_rate
+from 
+[dbo].[KK_Fiscal_Calendar_Network_Model] as A, [dbo].[KK_Five_year_Attribute_Fiscal_Xref] as B
+where A.cal_Date >= B.Date_from
+and A.cal_date <=B.Date_to
+and A.DC_type = 'DC'
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+set Growth = [[]]
+where Year_type = 'Future_Year1'
+and Special_Event = 'PEAK'
+
+
+
+Update [dbo].[KK_Fiscal_Calendar_Network_Model]
+set Growth = [[]]
+where Year_type = 'Future_Year1'
+and DC_Type = 'SFS'
+
+
+
+--- Validation query-----------------------------
+
+select Year_type, Min(Cal_Date) as Start_year_Date, Max(Cal_Date) as end_year_Date from 
+[dbo].[KK_Fiscal_Calendar_Network_Model]
+where Year_type is not null
+group by Year_type
+
+
+
+
+
+
+
+---- Query for Base Year Agg data starts--------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+---- Simultaneously apply growth and model future DC 
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type, , null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Base_Year') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+---------------------- Future Year1 Insert--------------------------------------------------------------
+
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type, , null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year1') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+---------------------- Future Year2 Insert--------------------------------------------------------------
+
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type,  null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year2') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+---------------------- Future Year3 Insert--------------------------------------------------------------
+
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type,  null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year3') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+---------------------- Future Year4 Insert--------------------------------------------------------------
+
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type, null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year4') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+---------------------- Future Year5 Insert--------------------------------------------------------------
+
+
+
+Insert into Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+
+SELECT  Convert(date, dateadd(day, scen_growth.No_of_days , vns.ORDER_DAY)) as Order_day
+      ,vns.[ORDER_HR]
+      ,vns.[BRAND]
+--- Use Actual DC for modeling -- remove below line if doing general DC modeling ---		, null as DC
+--- Use Actual DC for modeling -- remove below line if doing zip DC modeling ---  , ziplookup.DC_name as DC, ziplookup.DC_ID as DC_id
+        ,vns.DC as DC
+	  ,9999 as DC_id
+---------------- Geo/non-Geo modeled by looking up the zip in the Ship_ZIP_GEO_NON_GEO "B" table
+      ,'NOT_GEO' as  GEO_NO_GEO
+      ,Convert(date,dateadd(day, scen_growth.No_of_days , vns.Promise_Day)) as Promise_Day
+      ,sum (vns.[TOTAL_DEMAND]) as Total_demand
+      ,Sum (vns.[TOTAL_SHIPPED_DEMAND]) as TOTAL_SHIPPED_DEMAND
+	  ,sum (vns.[TOTAL_DEMAND]) * scen_growth.Growth_rate as Modeled_DC_Demand
+	  ,Convert(Date, vns.ORDER_DAY) as Original_Order_day
+	  ,Ship_option.Ship_Option as Assumed_Original_Ship_Option
+	  ,scen_growth.Year_Type, null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month, null as Peak_OffPeak
+---into Scratch.dbo.KK_Venus_Model_Aggregated_RawData 
+from
+  (select * from scratch.[dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year5') as scen_growth, 
+   Scratch.[dbo].[KK_VENUS_DATA] as vns 
+----- Since ship_option wasn't available in raw data, assigning using this table and the calculated 'Time to Promise' in the raw data
+    left join [Scratch].dbo.[KK_Ship_Option_Promise_Time] as Ship_option on DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  )  between Ship_option.Promise_Time_Range_Min and Ship_Option.Promise_Time_Range_Max
+----------- Assumption here is we only want demand where Promise day is greater than order day going throught the model and Total_Demand>0 (since cancel in Python model)
+where DATEDIFF ( HH ,  vns.Order_day , vns.Promise_Day  ) > 0 and Total_Demand>0
+  group by   vns.[ORDER_DAY], vns.[ORDER_HR], vns.[BRAND], vns.DC, vns.[PROMISE_DAY], Ship_option.Ship_Option, scen_growth.No_of_days, scen_growth.Growth_rate, scen_growth.Year_Type
+
+  --- [[USE THIS FOR ZIP DC MODELING]] left join scratch.dbo.KK_Ship_ZIP_GEO_NON_GEO as ziplookup on vns.SHIP_ZIP = ziplookup.SHIP_ZIP and Order_day between ziplookup.date_change_from and ziplookup.date_change_max
+  --- [[USE THIS FOR ZIP DC MODELING Add to group by]]  ziplookup.DC, ziplookup.DC_id
+
+ --- Using raw data, apply customer segmentation logic
+
+
+
+---------- Delele the extra dates data from the Agg table -- for example 2017 has 371 days but to get to 2019 I have to add 735 days which extends the table 2/6/2019 but the fiscal years ends on 2/1/2019
+
+  Delete a from Scratch.dbo.KK_Venus_Model_Aggregated_RawData a , [KK_Five_year_Attribute_Fiscal_Xref] as B
+  where a.Year_Type = B.Year_Type
+  and a.Order_day > b.Date_to
+
+--------------------------------------------------------------
+
+
+---------- Update the growth rate for SFS -----------------------------------------
+
+
+----- Update the fiscal attributes in the agg table
+Update A
+set A.Fiscal_Year = B.Fiscal_Year, A.Fiscal_Week = B.Fiscal_Week, A.Fiscal_month = B.Fiscal_month
+from [dbo].[KK_Venus_Model_Aggregated_RawData] as A, [dbo].[KK_Fiscal_Calendar_Network_Model] as B
+where A.Order_Day = B.Cal_Date
+
+
+
+update A
+set A.Peak_OffPeak = 'OFF_PEAK'
+from [KK_Venus_Model_Aggregated_RawData]  as A
+
+
+
+update A
+set A.Peak_OffPeak = 'PEAK'
+from [KK_Venus_Model_Aggregated_RawData]  as A, KK_Five_year_Attribute_Fiscal_Xref as B
+where A.Fiscal_Week >= B.Peak_Week_from
+and A.Fiscal_Week <= B.Peak_Week_to
+and A.Fiscal_Year = B.Fiscal_Year
+
+---------------------------------if the growth rates are given by Brand------------------------------------------------------------------
+
+-- off Peak growth
+
+select * from kk_brand_growth_xref
+
+update A
+set [Modeled_DC_Demand] = [Total_Demand] * Growth_Percentage
+from [dbo].[KK_Venus_Model_Aggregated_RawData] as A , (select * from kk_brand_growth_xref  where Peak_OffPeak = 'Off_Peak' and DC_type = 'DC' ) as B
+where A.BRAND = B.brand
+and A.Fiscal_Year = B.fiscal_Year
+and a.DC <> 'SFS'
+and a.Peak_OffPeak = 'OFF_PEAK'
+
+select * from [dbo].[KK_Brand_Growth_SFS_Xref]
+
+update A
+set [Modeled_DC_Demand] = [Total_Demand] * Growth_Percentage
+from [dbo].[KK_Venus_Model_Aggregated_RawData] as A , (select * from kk_brand_growth_xref  where Peak_OffPeak = 'Off_Peak' and DC_type = 'SFS' ) as B
+where A.BRAND = B.brand
+and A.Fiscal_Year = B.fiscal_Year
+and a.DC = 'SFS'
+and a.Peak_OffPeak = 'OFF_PEAK'
+
+-- Peak growth
+
+
+update A
+set [Modeled_DC_Demand] = [Total_Demand] * Growth_Percentage
+from [dbo].[KK_Venus_Model_Aggregated_RawData] as A , (select * from kk_brand_growth_xref  where Peak_OffPeak = 'Peak' and DC_type = 'DC' ) as B
+where A.BRAND = B.brand
+and A.Fiscal_Year = B.fiscal_Year
+and a.DC <> 'SFS'
+and a.Peak_OffPeak = 'PEAK'
+
+select * from [dbo].[KK_Brand_Growth_SFS_Xref]
+
+update A
+set [Modeled_DC_Demand] = [Total_Demand] * Growth_Percentage
+from [dbo].[KK_Venus_Model_Aggregated_RawData] as A , (select * from kk_brand_growth_xref  where Peak_OffPeak = 'Peak' and DC_type = 'SFS' ) as B
+where A.BRAND = B.brand
+and A.Fiscal_Year = B.fiscal_Year
+and a.DC = 'SFS'
+and a.Peak_OffPeak = 'PEAK'
+
+
+---- Validation query---------------------------
+
+-- Download the data from this query
+
+
+select (select Distinct scenario from kk_brand_growth_xref) as Scenario,Fiscal_Year, Brand, 
+
+(case when DC <> 'SFS' then 'DC' else DC end) as DC_type,
+Peak_OffPeak as Peak_Off_Peak,  sum([Modeled_DC_Demand]) as Modeled_Demand from [dbo].[KK_Venus_Model_Aggregated_RawData]
+group by Fiscal_Year, Brand, 
+
+(case when DC <> 'SFS' then 'DC' else DC end), Peak_OffPeak
+order by Fiscal_Year,  Brand, (case when DC <> 'SFS' then 'DC' else DC end)
+
+-- Update the UPP_CPP_validation access table Growth_Modeled_Demand_SQL_server
+-- Run the [[Q500-Demand_Validation_Query_Agg_data]] query
+-- Update the template Growth_validation_Template.xlsx - raw data tab
+
+
+
+
+
+
+
+
+
+--- Scenario A/B1/B2/C FFC-ODC moved to EAO 2018+---------------
+
+Update  [dbo].[KK_Venus_Model_Aggregated_RawData]
+set [DC] = 'EAO' , [DC_id] = 4
+where Year_type <> 'Base_Year'
+and DC = 'FFC-ODC'
+
+
+Update A
+  set A.DC_id = B.DC_ID
+  
+  from Scratch.[dbo].[KK_Venus_Model_Aggregated_RawData] as A , KK_DC_XREF as B
+  where A.DC = B.DC
+
+---- 11:53 AM 10/18 done upto this point
+
+
+--- Demand rebalancing starts  --------------------------------------
+
+
+----------- REBALANCING OF DC DEMAND AFTER THAT (Excel file from scratch)------------------------------------------
+----------------------------------------------------------------------------------------
+
+
+-- Create the rebalancing table across DCS 
+
+Drop table Scratch.dbo.KK_Demand_Rebalancing_Modeling
+
+Select * into Scratch.dbo.KK_Demand_Rebalancing_Modeling from (
+SELECT
+      A.[Fiscal_Year], z.Fiscal_Week
+      ,
+	  A.BRAND, 'XXXXXXX' as "Modeled DC Name", C.DC_ID as "Modeled DC", 0 as Demand, 'OFF_PEAK' as OFFPEAK_PEAK
+  FROM [Scratch].[dbo].[KK_Venus_Model_Aggregated_RawData] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z, (select distinct  DC_ID from KK_DC_XREF where DC not in ('SFS')) as C -- Only the distinct id 
+
+
+  Where A.DC <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, z.Fiscal_Week, C.DC_ID) as TT
+
+
+-- Update the rebalancing table
+
+Update A
+set A.Demand = B.demand
+from Scratch.dbo.KK_Demand_Rebalancing_Modeling as A, (SELECT
+      A.[Fiscal_Year], z.Fiscal_Week
+      ,
+	  A.BRAND,  A.[DC_id], Round (sum (Modeled_DC_Demand), 0) as Demand
+  FROM [Scratch].[dbo].[KK_Venus_Model_Aggregated_RawData] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z
+  Where A.DC <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, z.Fiscal_Week, A.[DC_id] ) as B
+
+where A.[Modeled DC] = B.[DC_id]
+and A.Fiscal_Year = B.Fiscal_Year
+and A.Fiscal_Week = B.Fiscal_Week
+and A.BRAND = B.BRAND
+
+
+
+--- Validation of demand---
+
+select sum (demand) from (
+SELECT
+      A.[Fiscal_Year], z.Fiscal_week
+      ,
+	  A.BRAND, A.[DC], A.[DC_id], Round (sum (Modeled_DC_Demand), 0) as Demand
+  FROM [Scratch].[dbo].[KK_Venus_Model_Aggregated_RawData] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z
+  Where A.DC <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, A.[DC],z.Fiscal_week, A.[DC_id] ) as TT
+
+
+
+
+select "Modeled DC", sum(demand ) from Scratch.dbo.KK_Demand_Rebalancing_Modeling
+ group by "Modeled DC"
+ order by "Modeled DC"
+
+-------------------------------
+
+
+---- Demand Pullling ------------------
+
+update A
+set A."Modeled DC Name" = B.DC
+
+from Scratch.dbo.KK_Demand_Rebalancing_Modeling as A, KK_DC_XREF as B
+where A."Modeled DC" = B.DC_ID
+
+
+update A
+set A.OFFPEAK_PEAK = 'PEAK'
+from Scratch.dbo.KK_Demand_Rebalancing_Modeling as A, KK_Five_year_Attribute_Fiscal_Xref as B
+where A.Fiscal_Week >= B.Peak_Week_from
+and A.Fiscal_Week <= B.Peak_Week_to
+and A.Fiscal_Year = B.Fiscal_Year
+
+
+
+
+
+
+
+-- First do the Off peak --Update the demand tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, BRAND, "Modeled DC Name", [Modeled DC], Demand from Scratch.dbo.KK_Demand_Rebalancing_Modeling
+where OFFPEAK_PEAK = 'OFF_PEAK'
+and "Modeled DC Name" <> 'OCC'  --- Dummy DC not for Off_peak
+order by Fiscal_year, fiscal_week
+
+-- Off peak Update the Demand_Brand_Level tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, Brand, sum(Demand) as Demand  from Scratch.dbo.KK_Demand_Rebalancing_Modeling
+where OFFPEAK_PEAK = 'OFF_PEAK'
+and "Modeled DC Name" <> 'OCC'  --- Dummy DC not for off peak
+group by Fiscal_Year, Fiscal_week, Brand
+
+order by Fiscal_year, fiscal_week
+
+-- Off peak Update the Capacity tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, DC_id, DC_name, Sum(utilized_Capacity) as Capacity from scratch.dbo.KK_Capacity_Modeling 
+where Fiscal_Year >=2018
+and DC_name <> 'OCC' --- Dummy DC not for off peak
+and Event_Network_Model not in ('PEAK',
+'Thanksgiving_Day',
+'Christmas_Day')
+
+group by Fiscal_Year, Fiscal_Week, DC_id, DC_name
+order by Fiscal_Year, Fiscal_Week, DC_id, DC_name
+
+
+select distinct DC_name, Fiscal_Year, Fiscal_Week
+from scratch.dbo.KK_Capacity_Modeling 
+where Fiscal_Year >=2018
+and Event_Network_Model not in ('PEAK',
+'Thanksgiving_Day',
+'Christmas_Day')
+
+group by Fiscal_Year, Fiscal_Week,  DC_name
+order by Fiscal_Year, Fiscal_Week,  DC_name
+
+
+ ----3:55 PM 10/18 done till this point
+
+-- 2nd the peak --Update the demand tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, BRAND, "Modeled DC Name", [Modeled DC], Demand from Scratch.dbo.KK_Demand_Rebalancing_Modeling
+where OFFPEAK_PEAK = 'PEAK'
+order by Fiscal_year, fiscal_week
+
+--  peak Update the Demand_Brand_Level tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, Brand, sum(Demand) as Demand  from Scratch.dbo.KK_Demand_Rebalancing_Modeling
+where OFFPEAK_PEAK = 'PEAK'
+group by Fiscal_Year, Fiscal_week, Brand
+
+order by Fiscal_year, fiscal_week
+
+-- peak Update the Capacity tab in the Excel file (Demand Modeling DC transfers final)
+
+
+select Fiscal_Year, Fiscal_Week, DC_id, DC_name, Sum(Utilized_Theortical_Max_Peak_Capacity) as Capacity from scratch.dbo.KK_Capacity_Modeling 
+where Fiscal_Year >=2018
+and Event_Network_Model in ('PEAK',
+'Thanksgiving_Day',
+'Christmas_Day')
+
+group by Fiscal_Year, Fiscal_Week, DC_id, DC_name
+order by Fiscal_Year, Fiscal_Week, DC_id, DC_name
+
+
+
+-- Update the tab Demand_Modeling_Week_level for Peak (After the third simulation run- there were days in Peak where WFC was above the threshold of 5 days. 
+
+-- Decided to use the utilized  theoritical max for rebalancing for ALL DCs
+-- However, model capacity will still use the utilized capacity columne
+
+select distinct DC_name, Fiscal_Year, Fiscal_Week
+from scratch.dbo.KK_Capacity_Modeling 
+where Fiscal_Year >=2018
+and Event_Network_Model in ('PEAK',
+'Thanksgiving_Day',
+'Christmas_Day')
+
+group by Fiscal_Year, Fiscal_Week,  DC_name
+order by Fiscal_Year, Fiscal_Week,  DC_name
+
+
+-- Upload both Off peak and Peak Excel and then make one table
+
+-- Change the join in the below tables by week
+
+
+
+
+
+
+
+
+--- Send it to Ashaya basnyat/Smita Gupta or Jess fortier to update the rebalancing
+-- Take the file and upload that in the Scratch SQL server (Table KK_demand_rebalancing_DC_transfers
+
+
+
+---- Upload the rebalancing table [dbo].KK_demand_rebalancing_DC_transfers
+
+
+-- Now upload the data from the demand tab to the Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_Peak]
+
+Drop table Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_Peak]  -- Create the demand rebalancing for Peak
+
+Delete from Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_Peak]
+where Fiscal_year is null
+
+-- Now upload the data from the demand tab to  Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_OffPeak]
+
+Drop table Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_OffPeak]  -- Create the demand rebalancing for OffPeak
+
+Delete from Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_OffPeak]
+where Fiscal_year is null
+
+--Merge both the tables and and create the [dbo].KK_demand_rebalancing_DC_transfers
+
+
+
+Drop table [dbo].KK_demand_rebalancing_DC_transfers
+
+select * into [dbo].KK_demand_rebalancing_DC_transfers
+
+from (
+
+select * from  Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_OffPeak] 
+
+union
+
+select * from  Scratch.[dbo].[KK_demand_rebalancing_DC_transfers_Peak]
+) as XXs
+
+
+Delete from Scratch.[dbo].[KK_demand_rebalancing_DC_transfers]
+where Fiscal_year is null
+
+
+
+-----------------------------------------------------------------------------------------------
+
+
+------- REBALANCING QUERIES ENDS------------------------------------------------------
+
+
+
+
+
+
+
+---------- Creating the demand after rebalancing tables------------------------
+
+--- Creating the demand by Promise time scenario specific
+drop table Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year]
+
+
+select 
+Order_day,
+ORDER_HR,
+BRAND,
+GEO_NO_GEO,
+Promise_Day,
+Sum (Total_demand) as Total_demand,
+Sum (Total_demand) as Total_demand_initial,
+Sum (TOTAL_SHIPPED_DEMAND) as TOTAL_SHIPPED_DEMAND ,
+Sum (TOTAL_SHIPPED_DEMAND) as TOTAL_SHIPPED_DEMAND_initial ,
+Sum (Modeled_DC_Demand) as Modeled_DC_Demand ,
+Sum (Modeled_DC_Demand) as Modeled_DC_Demand_Rebalancing ,
+Original_Order_day,
+Assumed_Original_Ship_Option,
+Year_Type,
+Fiscal_Year,
+Fiscal_Week,
+Fiscal_Month
+into Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year]
+from Scratch.[dbo].[KK_Venus_Model_Aggregated_RawData]
+
+where Year_Type <> 'Base_Year'
+and DC <> 'SFS'
+group by Order_day,
+ORDER_HR,
+BRAND,
+GEO_NO_GEO,
+Promise_Day,
+Original_Order_day,
+Assumed_Original_Ship_Option,
+Year_Type,
+Fiscal_Year,
+Fiscal_Week,
+Fiscal_Month
+
+
+alter table Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year]
+Add Peak_off_Peak  Varchar(50)
+
+
+update Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year] 
+set Peak_off_peak = 'Off_Peak' 
+
+
+update A
+set Peak_off_peak = 'Peak' 
+from Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year] as A, KK_Five_year_Attribute_Fiscal_Xref as B
+
+where a.Fiscal_Year = B.Fiscal_Year
+and a.Fiscal_Week >= b.Peak_week_from
+and a.Fiscal_Week <= b.Peak_week_to
+
+
+
+
+
+
+
+------ scenario C specific------------------
+
+drop table [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+
+select 
+Order_day,		
+ORDER_HR,		
+BRAND,		
+GEO_NO_GEO,		
+
+Convert(date, dateadd(day, B.Promise_time/24 , ORDER_DAY)) as  Promise_day,		
+sum(Total_demand) * B.Demand_Perc	as	Total_demand,
+sum(Total_demand_initial) * B.Demand_Perc	as	Total_demand_initial,
+sum(TOTAL_SHIPPED_DEMAND) * B.Demand_Perc	as	TOTAL_SHIPPED_DEMAND,
+sum(TOTAL_SHIPPED_DEMAND_initial) * B.Demand_Perc	as	TOTAL_SHIPPED_DEMAND_initial,
+sum(Modeled_DC_Demand) * B.Demand_Perc	as	Modeled_DC_Demand,
+sum(Modeled_DC_Demand_Rebalancing)	* B.Demand_Perc as	Modeled_DC_Demand_Rebalancing,
+Original_Order_day,		
+ Assumed_Original_Ship_Option,		
+Year_Type,		
+[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].Fiscal_Year,		
+Fiscal_Week,		
+Fiscal_Month,
+Peak_off_peak 
+
+into [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+from [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year],
+
+(select * from KK_PROMISE_TIME_SCENARIO
+where Time_frame = 'Off_Peak') as B
+
+
+where 	Peak_off_peak = 'Off_Peak' 
+and [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].fiscal_year = b.fiscal_year
+group by Order_day,		
+ORDER_HR,		
+BRAND,		
+GEO_NO_GEO,	
+Original_Order_day,		
+ Assumed_Original_Ship_Option,		
+Year_Type,		
+[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].Fiscal_Year,		
+Fiscal_Week,Fiscal_Month,		
+Peak_off_peak ,
+Convert(date, dateadd(day, B.Promise_time/24 , ORDER_DAY)) , B.Demand_Perc
+
+
+----- add peak
+
+
+Insert  into [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+
+select 
+Order_day,		
+ORDER_HR,		
+BRAND,		
+GEO_NO_GEO,		
+
+Convert(date, dateadd(day, B.Promise_time/24 , ORDER_DAY)) as  Promise_day,		
+sum(Total_demand) * B.Demand_Perc	as	Total_demand,
+sum(Total_demand_initial) * B.Demand_Perc	as	Total_demand_initial,
+sum(TOTAL_SHIPPED_DEMAND) * B.Demand_Perc	as	TOTAL_SHIPPED_DEMAND,
+sum(TOTAL_SHIPPED_DEMAND_initial) * B.Demand_Perc	as	TOTAL_SHIPPED_DEMAND_initial,
+sum(Modeled_DC_Demand) * B.Demand_Perc	as	Modeled_DC_Demand,
+sum(Modeled_DC_Demand_Rebalancing)	* B.Demand_Perc as	Modeled_DC_Demand_Rebalancing,
+Original_Order_day,		
+ Assumed_Original_Ship_Option,		
+Year_Type,		
+[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].fiscal_year,		
+Fiscal_Week,		
+Fiscal_Month,
+ Peak_off_Peak
+
+--into [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+from [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year],
+
+(select * from KK_PROMISE_TIME_SCENARIO
+where Time_frame = 'Peak') as B
+
+
+where 	Peak_off_peak = 'Peak' 
+and [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].fiscal_year = b.fiscal_year
+group by Order_day,		
+ORDER_HR,		
+BRAND,		
+GEO_NO_GEO,	
+Original_Order_day,		
+ Assumed_Original_Ship_Option,		
+Year_Type,		
+[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year].fiscal_year,		
+Fiscal_Week,		
+Fiscal_Month,
+Peak_off_Peak,
+Convert(date, dateadd(day, B.Promise_time/24 , ORDER_DAY)) , B.Demand_Perc
+
+
+Update [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+set geo_no_geo = 'Geo'
+where DATEDIFF( HH ,  Order_day , Promise_Day  ) = 72
+and Peak_off_Peak = 'Off_Peak'
+
+Update [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+set geo_no_geo = 'Geo'
+where DATEDIFF( HH ,  Order_day , Promise_Day  ) = 96
+and Peak_off_Peak = 'Peak'
+
+
+
+
+
+
+
+
+-----------------------------------------------------------------------
+
+
+---- Validation Query scenario C ship promise-----------------
+
+select geo_no_geo ,fiscal_year,
+DATEDIFF ( HH ,  Order_day , Promise_Day  ) as Promise_time, Peak_off_Peak, sum(Modeled_DC_Demand_Rebalancing) as modeled_demand
+from [KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise]
+
+group by geo_no_geo , fiscal_year, DATEDIFF( HH ,  Order_day , Promise_Day  ), Peak_off_Peak
+having sum(Modeled_DC_Demand_Rebalancing) >0
+order by Peak_off_Peak, DATEDIFF( HH ,  Order_day , Promise_Day  )
+
+-------------------------------------
+
+
+
+
+
+
+
+---------------------------------------------------------------------
+---- Creating the final rebalancing table---------------------------
+
+Drop table Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun]
+
+select Order_day,
+ORDER_HR,
+A.BRAND,
+B.DC_name_Xref as DC,
+B.[Modeled DC] as DC_id,
+GEO_NO_GEO,
+Promise_Day,
+Total_demand,
+Total_demand_initial * B.Demand_Intial_Yearly_Perc as Total_demand_initial,
+TOTAL_SHIPPED_DEMAND, 
+TOTAL_SHIPPED_DEMAND_initial * B.Demand_Intial_Yearly_Perc as TOTAL_SHIPPED_DEMAND_initial ,
+Modeled_DC_Demand ,
+Modeled_DC_Demand_Rebalancing * Modeled_Demand_Final_Year_Perc as Modeled_DC_Demand_Rebalancing,
+Original_Order_day,
+Assumed_Original_Ship_Option,
+Year_Type,
+A.Fiscal_Year,
+A.Fiscal_Week,
+A.Fiscal_Month,
+A.Peak_off_Peak
+into Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun]
+ from Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Brand_Fis_Month_Year_Ship_Promise] as A, [dbo].KK_demand_rebalancing_DC_transfers as B
+Where A.BRAND = B.BRAND
+and A.Fiscal_week = B.Fiscal_week
+and A.Fiscal_Year = B.Fiscal_Year
+
+
+
+-- off peak checking against the Jess demand
+
+SELECT Fulfillment_type ,   
+ [2018], [2019], [2020], [2021],  [2022],  [2023]
+FROM  
+(select Fiscal_Year,  DC as Fulfillment_type, ("Modeled_DC_Demand_Rebalancing") as Modeled_Demand from [dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun]
+   where [Total_demand_initial] >= 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   and Peak_off_Peak = 'Off_Peak'
+   ) AS SourceTable  
+PIVOT  
+(  
+Sum(Modeled_Demand)  
+FOR Fiscal_Year IN ( [2018], [2019], [2020], [2021],  [2022],  [2023])  
+) AS PivotTable
+
+
+
+-- peak checking against the Jess demand
+SELECT Fulfillment_type ,   
+ [2018], [2019], [2020], [2021],  [2022],  [2023]
+FROM  
+(select Fiscal_Year,  DC as Fulfillment_type, ("Modeled_DC_Demand_Rebalancing") as Modeled_Demand from [dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun]
+   where [Total_demand_initial] >= 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   and Peak_off_Peak = 'Peak'
+   ) AS SourceTable  
+PIVOT  
+(  
+Sum(Modeled_Demand)  
+FOR Fiscal_Year IN ( [2018], [2019], [2020], [2021],  [2022],  [2023])  
+) AS PivotTable
+
+
+
+
+
+
+
+
+
+
+--- 2:50 PM 10/19
+
+--- Validation query 
+-------------------------------------
+
+---- Demand from the final rebalance query
+
+select CONCAT(Fiscal_Year, Fiscal_week, Brand, DC) as Key1,
+Fiscal_Year, Fiscal_week, Brand, DC, Sum(Modeled_DC_Demand_Rebalancing) as Demand
+ from Scratch.[dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun]
+ group by Fiscal_Year, Fiscal_week, Brand, DC, CONCAT(Fiscal_Year, Fiscal_week, Brand, DC)
+ order by Fiscal_Year, Fiscal_week, Brand, DC
+
+
+------ Demand query from Excel-------------------
+
+ select CONCAT(Fiscal_Year, Fiscal_week, Brand, DC_name_Xref) as Key1,
+ 
+ Fiscal_Year, Fiscal_week, Brand, DC_name_Xref, Sum(Modeled_Demand) as Demand
+ from  [dbo].KK_demand_rebalancing_DC_transfers
+  group by Fiscal_Year, Fiscal_week, Brand, DC_name_Xref, CONCAT(Fiscal_Year, Fiscal_week, Brand, DC_name_Xref)
+ order by Fiscal_Year, Fiscal_week, Brand, DC_name_Xref
+
+
+----- Validation query rebalancing end
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------
+
+
+
+
+---- Query for Base Year Agg data End--------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+--------- Inserting into Prerun table starts------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+-- Base Year Insert and Not SFS
+
+delete from Scratch.dbo.KK_Venus_Model_Pre_Run
+
+insert into Scratch.dbo.KK_Venus_Model_Pre_Run
+
+  select    
+Year(Order_day) as "Year",
+Order_Day, 
+[ORDER_HR], 
+0 as Zip, 
+---update below as appropriate
+'Base slow' as "Network Alignment", 
+agg_raw.DC_ID as DC,  --- raw data has a placeholder for this field...should be updated by ID query next
+agg_raw.DC as DC_name, 
+0 as "Segment", 
+Assumed_Original_Ship_Option as Old_Ship_Option,
+agg_raw.BRAND, 
+Total_demand as "Ordered Units",  
+----update below if needed based on DC modeling selection 
+agg_raw.DC_ID as "Modeled DC", agg_raw.DC as [Modeled DC Name],
+---update below if new ship option...currently assuming current ship option is modeled
+null as "Modeled Ship Option",
+Modeled_DC_Demand  as "Modeled Order Units" , 
+-- * cust_seg.final_demand_Percentage as "Modeled Order Units" , 
+null as "Time to Promise", 
+null as "Remaining Units", 
+null as "Time fully Processed",
+null as "Units_Processed1", 
+null as "Units_Processed_Final", 
+null as No_of_Packages, 
+null as No_of_Packages_final, 
+null as Cost, 
+null as "Total_Cost", 
+null as UPP, 
+GEO_NO_GEO as Geo,
+null as customer_type,
+ DATEDIFF ( HH ,  agg_raw.Order_day , agg_raw.Promise_Day  )  as Old_Promise_time  ,
+---CONCAT (cust_seg.Customer_Key, case when Geo_no_Geo = 'GEO' then 1 else 9 end) as Customer_Type, 
+GEO_NO_GEO,
+[PROMISE_DAY], 
+ Original_Order_day, 
+ null as Free_Speed, 
+ null as Preferred_Card_Holder, 
+ null as Top10, 
+ null as Free_speed_demand, 
+ null as Preferred_Card_demand, 
+ null as Top10_demand, 
+ null as Final_Demand_Percentage, 
+
+
+null as Modeled_Promise_Time,
+Year_type, null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month,  null as Peak_offPeak, null as Fiscal_Day
+
+--into Scratch.dbo.KK_Venus_Model_Pre_Run
+ from Scratch.dbo.KK_Venus_Model_Aggregated_RawData agg_raw
+where Year_type = 'Base_Year'
+and DC <> 'SFS'
+
+
+ ---left join [Scratch].dbo.KK_All_Combination_Customer_Segmentation_Xref as cust_seg on agg_raw.Brand = cust_seg.Brand
+  --- [[USE if doing 'general' DC Modeling...would require different]] left join [dbo].[KK_Mapping_Model_DC_Xref] dclookup on agg_raw.Brand = dclookup.Brand_Name
+
+
+------------------------------------------ SFS insert -----------------------------------------------------
+
+  insert into Scratch.dbo.KK_Venus_Model_Pre_Run
+
+  select    
+Year(Order_day) as "Year",
+Order_Day, 
+[ORDER_HR], 
+0 as Zip, 
+---update below as appropriate
+'Base slow' as "Network Alignment", 
+agg_raw.DC_ID as DC,  --- raw data has a placeholder for this field...should be updated by ID query next
+agg_raw.DC as DC_name, 
+0 as "Segment", 
+Assumed_Original_Ship_Option as Old_Ship_Option,
+agg_raw.BRAND, 
+Total_demand as "Ordered Units",  
+----update below if needed based on DC modeling selection 
+agg_raw.DC_ID as "Modeled DC", agg_raw.DC as [Modeled DC Name],
+---update below if new ship option...currently assuming current ship option is modeled
+null as "Modeled Ship Option",
+Modeled_DC_Demand  as "Modeled Order Units" , 
+-- * cust_seg.final_demand_Percentage as "Modeled Order Units" , 
+null as "Time to Promise", 
+null as "Remaining Units", 
+null as "Time fully Processed",
+null as "Units_Processed1", 
+null as "Units_Processed_Final", 
+null as No_of_Packages, 
+null as No_of_Packages_final, 
+null as Cost, 
+null as "Total_Cost", 
+null as UPP, 
+GEO_NO_GEO as Geo,
+null as customer_type,
+ DATEDIFF ( HH ,  agg_raw.Order_day , agg_raw.Promise_Day  )  as Old_Promise_time  ,
+---CONCAT (cust_seg.Customer_Key, case when Geo_no_Geo = 'GEO' then 1 else 9 end) as Customer_Type, 
+GEO_NO_GEO,
+[PROMISE_DAY], 
+ Original_Order_day, 
+ null as Free_Speed, 
+ null as Preferred_Card_Holder, 
+ null as Top10, 
+ null as Free_speed_demand, 
+ null as Preferred_Card_demand, 
+ null as Top10_demand, 
+ null as Final_Demand_Percentage, 
+
+
+null as Modeled_Promise_Time,
+Year_type, null as Fiscal_Year, null as Fiscal_Week, null as Fiscal_month,  null as Peak_offPeak, null as Fiscal_Day
+
+--into Scratch.dbo.KK_Venus_Model_Pre_Run
+ from Scratch.dbo.KK_Venus_Model_Aggregated_RawData agg_raw
+Where DC = 'SFS'
+
+
+ ---left join [Scratch].dbo.KK_All_Combination_Customer_Segmentation_Xref as cust_seg on agg_raw.Brand = cust_seg.Brand
+  --- [[USE if doing 'general' DC Modeling...would require different]] left join [dbo].[KK_Mapping_Model_DC_Xref] dclookup on agg_raw.Brand = dclookup.Brand_Name
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------Future Year Insert from the rebalancing table----------------------------------------------------------------
+
+insert into Scratch.dbo.KK_Venus_Model_Pre_Run
+
+  select    
+Year(Order_day) as "Year",
+Order_Day, 
+[ORDER_HR], 
+0 as Zip, 
+---update below as appropriate
+'Base slow' as "Network Alignment", 
+agg_raw.DC_ID as DC,  --- raw data has a placeholder for this field...should be updated by ID query next
+agg_raw.DC as DC_name, 
+0 as "Segment", 
+Assumed_Original_Ship_Option as Old_Ship_Option,
+agg_raw.BRAND, 
+Total_demand_initial as "Ordered Units",  
+----update below if needed based on DC modeling selection 
+agg_raw.DC_ID as "Modeled DC",  agg_raw.DC as [Modeled DC Name],
+---update below if new ship option...currently assuming current ship option is modeled
+null as "Modeled Ship Option",
+Modeled_DC_Demand_Rebalancing as "Modeled Order Units" , 
+-- * cust_seg.final_demand_Percentage as "Modeled Order Units" , 
+null as "Time to Promise", 
+null as "Remaining Units", 
+null as "Time fully Processed",
+null as "Units_Processed1", 
+null as "Units_Processed_Final", 
+null as No_of_Packages, 
+null as No_of_Packages_final, 
+null as Cost, 
+null as "Total_Cost", 
+null as UPP, 
+GEO_NO_GEO as Geo,
+null as customer_type,
+ DATEDIFF ( HH ,  agg_raw.Order_day , agg_raw.Promise_Day  )  as Old_Promise_time  ,
+---CONCAT (cust_seg.Customer_Key, case when Geo_no_Geo = 'GEO' then 1 else 9 end) as Customer_Type, 
+GEO_NO_GEO,
+[PROMISE_DAY], 
+ Original_Order_day, 
+ null as Free_Speed, 
+ null as Preferred_Card_Holder, 
+ null as Top10, 
+ null as Free_speed_demand, 
+ null as Preferred_Card_demand, 
+ null as Top10_demand, 
+ null as Final_Demand_Percentage, 
+
+
+null as Modeled_Promise_Time,
+Year_type, Fiscal_year as Fiscal_Year, Fiscal_Week as Fiscal_Week, Fiscal_month as Fiscal_month, null as Peak_offPeak, null as Fiscal_Day
+
+--into Scratch.dbo.KK_Venus_Model_Pre_Run
+ from [dbo].[KK_Venus_Model_Aggregated_Rebalancing_Final_table_Before_Prerun] agg_raw
+where Year_type <> 'Base_Year'
+
+
+ ---left join [Scratch].dbo.KK_All_Combination_Customer_Segmentation_Xref as cust_seg on agg_raw.Brand = cust_seg.Brand
+  --- [[USE if doing 'general' DC Modeling...would require different]] left join [dbo].[KK_Mapping_Model_DC_Xref] dclookup on agg_raw.Brand = dclookup.Brand_Name
+
+
+
+
+delete from Scratch.dbo.KK_Venus_Model_Pre_Run
+where "Modeled Order Units"  <= 0
+
+
+
+update Scratch.dbo.KK_Venus_Model_Pre_Run
+  set Modeled_Promise_Time = Old_Promise_time
+
+Update A
+  set A.DC = B.DC_ID
+  , A."Modeled DC" = B.DC_ID
+  from Scratch.dbo.KK_Venus_Model_Pre_Run as A , KK_DC_XREF as B
+  where A.DC_name = B.DC
+and A.DC is null
+
+----------------------------------------------------
+
+Update A
+  set  A."Modeled DC" = B.DC_ID
+  from Scratch.dbo.KK_Venus_Model_Pre_Run as A , KK_DC_XREF as B
+  where A.[Modeled DC Name] = B.DC
+and A."Modeled DC" is null
+
+
+Update A
+set A.Fiscal_Year = B.Fiscal_Year, A.Fiscal_Week = B.Fiscal_Week, A.Fiscal_month = B.Fiscal_month
+from [Scratch].[dbo].[KK_Venus_Model_Pre_Run] as A, [dbo].[KK_Fiscal_Calendar_Network_Model] as B
+where A.Order_Day = B.Cal_Date
+
+
+
+update [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+set Peak_offpeak = 'Off_Peak' 
+
+
+update A
+set Peak_offpeak = 'Peak' 
+from [Scratch].[dbo].[KK_Venus_Model_Pre_Run] as A, KK_Five_year_Attribute_Fiscal_Xref as B
+
+where a.Fiscal_Year = B.Fiscal_Year
+and a.Fiscal_Week >= b.Peak_week_from
+and a.Fiscal_Week <= b.Peak_week_to
+
+
+
+---- --- Don't run for C
+ --scenario B2 - promise day modeling 2020+ (off peak)--------------------
+
+Update  [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+set Modeled_Promise_Time = 72
+where Modeled_Promise_Time >72
+and fiscal_year >=2020
+and fiscal_week  not in (43,44,45,46,47)
+
+
+--- scenario B2 - promise day modeling 2021+ (Peak)--------------------
+
+Update  [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+set Modeled_Promise_Time = 120
+where Modeled_Promise_Time >120
+and fiscal_year >=2021
+and fiscal_week  in (43,44,45,46,47)
+---- --- Don't run for C ends-------
+
+
+------- Time to promise validation----
+
+
+select max(Modeled_Promise_Time) from [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+where  fiscal_year >=2020
+and Peak_offPeak = 'Off_peak'
+
+select max(Modeled_Promise_Time) from [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+where  fiscal_year >=2021
+and Peak_offPeak = 'peak'
+
+
+---- Scenario C validation query for demand
+
+select  fiscal_year, GEO_NO_GEO,geo,Modeled_Promise_Time , Peak_offPeak ,
+
+sum([Modeled Order Units]) as Demand
+from [Scratch].[dbo].[KK_Venus_Model_Pre_Run]
+where Fiscal_Year >= 2018
+and DC_name <> 'SFS'
+group by Modeled_Promise_Time , Peak_offPeak , GEO_NO_GEO,geo, fiscal_year
+order by Peak_offPeak , Modeled_Promise_Time
+
+-------------------------
+
+
+
+
+
+
+
+
+--------- Inserting into Prerun table Ends------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+ ---- Assign new modeled ship option (if not assigned by KK_All_Combination_Customer_Segmentation_Xref )
+  update Scratch.dbo.KK_Venus_Model_Pre_Run
+  set [Modeled Ship Option] = 'New_Special'
+  where
+  --customer_type = [[]] and 
+  --Geo = [[]] and
+  --Old_Ship_Option = [[]] and
+  Free_Speed <> 'Other' or
+  Preferred_Card_Holder = 'Preferred_Card_Holder' or 
+  Top10 = 'Top 10%'  
+  and Year_type <> 'Base_Year'
+ -- order_day between [[Insert date]] and [[Insert Date]];
+ 
+
+ --- Assign new modeled promise time based on ship option
+   update A
+  set A.[Modeled_Promise_time] = B.Sat_Avail
+  from Scratch.dbo.KK_Venus_Model_Pre_Run as A, scratch.dbo.KK_Future_Promise_Time_Modeling_Xref as B
+  where 
+  A.[Modeled Ship Option] = B.Modeled_Ship_Option
+  and A.ORDER_HR < B.Cut_off_Time
+  and b.Cut_off_Time_Filter = 'Before_3PM'
+  and left(DATENAME ( WEEKDAY , a.Order_Day ),3) = B."day"
+  and Year_type <> 'Base_Year'
+  --order_day between [[Insert date]] and [[Insert Date]];
+
+   update A
+  set A.[Modeled_Promise_time] = B.Sat_Avail
+  from Scratch.dbo.KK_Venus_Model_Pre_Run as A, scratch.dbo.KK_Future_Promise_Time_Modeling_Xref as B
+  where 
+  A.[Modeled Ship Option] = B.Modeled_Ship_Option
+  and A.ORDER_HR >= B.Cut_off_Time
+  and b.Cut_off_Time_Filter = 'After_3PM'
+  and left(DATENAME ( WEEKDAY , a.Order_Day ),3) = B."day"
+  and Year_type <> 'Base_Year'
+  --order_day between [[Insert date]] and [[Insert Date]];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------------------------------
+
+---- Assign new modeled ship option (if not assigned by KK_All_Combination_Customer_Segmentation_Xref )
+
+
+--------Validation Queries Demand Check ----------------------------------
+
+select DC, sum(Total_demand) as Original_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_VENUS_DATA
+   where "Total_demand" > 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by DC
+
+
+
+-- Agg table  query validation
+select Year_type, DC, sum(Total_demand) as Original_demand, Sum(Modeled_DC_Demand) as Modeled_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+   where "Total_demand" > 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by DC, Year_type
+
+
+select Year_type, (case when DC = 'SFS' then 'SFS'  else 'DC' end)  as Fulfillment_type, sum(Total_demand) as Original_demand, Sum(Modeled_DC_Demand) as Modeled_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Aggregated_RawData
+   where "Total_demand" > 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by case when DC = 'SFS' then 'SFS'  else 'DC' end  , Year_type
+
+
+
+------------- % Demand going to the new DC--------------------------------------------------------------------------------
+
+SELECT *
+FROM   (SELECT DC_name,
+               Year_type,
+               "Modeled Order Units"
+			   , (select growth_Rate from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year1') as Input_Growth_rate_Year1,
+                             (select growth_Rate from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year2') as Input_Growth_rate_Year2,
+                             (select growth_Rate from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year3') as Input_Growth_rate_Year3,
+                             (select growth_Rate from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year4') as Input_Growth_rate_Year4
+			     
+        FROM   Scratch.dbo.KK_Venus_Model_Pre_Run
+		---where DC_name <> 'SFS'
+        ) as SourceTable
+PIVOT
+(
+   Sum("Modeled Order Units") 
+   FOR Year_type IN ([Base_Year],
+                      [Future_Year1], [Future_Year2], [Future_Year3],[Future_Year4]
+                     )
+) AS SumDemand
+ORDER BY DC_name
+
+
+
+
+  select Year_type, (case when DC_name = 'SFS' then 'SFS'  else 'DC' end)  as Fulfillment_type, sum("Ordered Units") as Original_demand, Sum("Modeled Order Units") as Modeled_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Pre_Run
+   where "Ordered Units" > 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by case when DC_name = 'SFS' then 'SFS'  else 'DC' end  , Year_type
+
+
+
+--- By promise time ------------------------------------------------------------------------
+select Year_type, Modeled_Promise_Time, Sum("Modeled Order Units") Modeled_Demand from Scratch.dbo.KK_Venus_Model_Pre_Run
+group by Year_type, Modeled_Promise_Time
+
+
+-----  Negative demand (No negative demand) in the model-----------------------------------------------------
+
+select * from 
+Scratch.dbo.KK_Venus_Model_Pre_Run
+where "Modeled Order Units" < 0
+-------------------------------------------------------------------------------------------------------------
+
+------Incorrect data (Promise day < Order day)--------------------------------------------------------------
+
+select * from 
+Scratch.dbo.KK_Venus_Model_Pre_Run
+where Promise_DAy < Order_Day
+
+
+------  % assigned to each customer segmentation and total modeled demand check---------------------------------------------------
+
+select Year_Type, Free_Speed, Preferred_Card_Holder, Top10, GEO_NO_GEO,Sum ("Modeled order Units") from Scratch.dbo.KK_Venus_Model_Pre_Run
+group by Year_Type, Free_Speed, Preferred_Card_Holder, Top10, GEO_NO_GEO
+
+
+
+--------------------------------------------------------------------------------------------------------------
+----Check if New ship option has no null----------------------------------------------------------------
+
+ select * from Scratch.dbo.KK_Venus_Model_Pre_Run
+ where "Modeled Ship Option" is null
+
+-------------------------------------------------------------------------------------------------------
+Check if New Modeled DC has no null
+
+ select * from Scratch.dbo.KK_Venus_Model_Pre_Run
+  where "Modeled DC" = 9999
+
+-------------------------------------------------------------------------------------------------------
+
+
+------BOPIS/SFS demand Start-----------------------------------------------------------------------------------------
+select case when DC_name = 'SFS' then 'SFS'  else 'DC' end as Fulfillment_type , Year_Type, Sum ("Modeled order Units") from Scratch.dbo.KK_Venus_Model_Pre_Run
+
+group by Year_Type, case when DC_name = 'SFS' then 'SFS'  else 'DC' end
+
+
+
+-- Check there is No ODC demand ---------------------------------------------------------
+select Fiscal_Year, Brand, [Modeled DC name]  as Fulfillment_type, sum("Ordered Units") as Original_demand, Sum("Modeled Order Units") as Modeled_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Pre_Run
+   where "Ordered Units" > 0
+   --and DC <> 'SFS'
+   and DC_name = 'FFC-ODC'and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by [Modeled DC name] , Fiscal_Year, Brand
+   order by Fiscal_Year
+
+------BOPIS/SFS demand end -----------------------------------------------------------------------------------------
+
+ 
+
+select DC_name, sum("Modeled Order Units"), convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Pre_Run
+group by DC_name
+
+
+
+select Fiscal_Year, Brand , (case when DC_name = 'SFS' then 'SFS'  else 'DC' end)  as Fulfillment_type, sum("Ordered Units") as Original_demand, Sum("Modeled Order Units") as Modeled_Demand, convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from Scratch.dbo.KK_Venus_Model_Pre_Run
+   where [Ordered Units] > 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   group by case when DC_name = 'SFS' then 'SFS'  else 'DC' end  , Fiscal_year, Brand
+   order by Fiscal_Year
+
+
+
+-- Checking against the demand file Jess off peak--- 
+
+
+SELECT Brand,Fulfillment_type ,   
+[2017], [2018], [2019], [2020], [2021],  [2022],  [2023]
+FROM  
+(select Fiscal_Year, Brand , (case when DC_name = 'SFS' then 'SFS'  else 'DC' end)  as Fulfillment_type, ("Modeled Order Units") as Modeled_Demand from Scratch.dbo.KK_Venus_Model_Pre_Run
+   where [Ordered Units] >= 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   and Peak_offPeak = 'Off_Peak'   
+   ) AS SourceTable  
+PIVOT  
+(  
+Sum(Modeled_Demand)  
+FOR Fiscal_Year IN ([2017], [2018], [2019], [2020], [2021],  [2022],  [2023])  
+) AS PivotTable
+
+
+Order by (case when Brand = 'Gap' then 1
+              when Brand = 'Old Navy' then 2
+			  when Brand = 'Banana Republic' then 3
+			  when Brand = 'Athleta' then 4
+			  when Brand = 'Gap Factory Store' then 5
+			  when Brand = 'BR Factory Store' then 6 end), Fulfillment_type
+
+
+
+
+
+
+-- Checking against the demand file Jess  peak--- 
+SELECT Brand,Fulfillment_type ,   
+[2017], [2018], [2019], [2020], [2021],  [2022],  [2023]
+FROM  
+(select Fiscal_Year, Brand , (case when DC_name = 'SFS' then 'SFS'  else 'DC' end)  as Fulfillment_type, ("Modeled Order Units") as Modeled_Demand from Scratch.dbo.KK_Venus_Model_Pre_Run
+   where [Ordered Units] >= 0
+   --and DC <> 'SFS'
+   and DATEDIFF ( HH ,  Order_day , Promise_Day  ) > 0 
+   and Peak_offPeak = 'Peak'
+   
+   ) AS SourceTable  
+PIVOT  
+(  
+Sum(Modeled_Demand)  
+FOR Fiscal_Year IN ([2017], [2018], [2019], [2020], [2021],  [2022],  [2023])  
+) AS PivotTable
+
+
+Order by (case when Brand = 'Gap' then 1
+              when Brand = 'Old Navy' then 2
+			  when Brand = 'Banana Republic' then 3
+			  when Brand = 'Athleta' then 4
+			  when Brand = 'Gap Factory Store' then 5
+			  when Brand = 'BR Factory Store' then 6 end), Fulfillment_type
+
+
+
+
+
+
+---- Rebalancing validation------------------
+
+
+
+-- Create the rebalancing table validation
+
+Drop table Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation
+
+Select * into Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation from (
+SELECT
+      A.[Fiscal_Year], z.Fiscal_Month
+      ,
+	  A.BRAND, 'XXXXXXX' as "Modeled DC Name", C.DC_ID as "Modeled DC", 0 as Demand
+  FROM [Scratch].[dbo].[KK_Venus_Model_Pre_Run] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z, (select distinct  DC_ID from KK_DC_XREF where DC not in ('OCC','SFS')) as C -- Only the distinct id 
+
+
+  Where A.DC_name <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, z.Fiscal_Month, C.DC_ID) as TT
+
+
+-- Update the rebalancing table
+
+Update A
+set A.Demand = B.demand
+from Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation as A, (SELECT
+      A.[Fiscal_Year], z.Fiscal_Month
+      ,
+	  A.BRAND,  A.[Modeled DC], Round (sum ("Modeled Order Units"), 0) as Demand
+  FROM [Scratch].[dbo].[KK_Venus_Model_Pre_Run] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z
+  Where A.DC_name <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, z.Fiscal_Month, A.[Modeled DC] ) as B
+
+where A.[Modeled DC] = B.[Modeled DC]
+and A.Fiscal_Year = B.Fiscal_Year
+and A.Fiscal_Month = B.Fiscal_Month
+and A.BRAND = B.BRAND
+
+
+
+--- Validation of demand---
+
+select sum (demand) from (
+SELECT
+      A.[Fiscal_Year], z.Fiscal_Month
+      ,
+	  A.BRAND, A.[Modeled DC Name], A.[Modeled DC], Round (sum ("Modeled Order Units"), 0) as Demand
+  FROM [Scratch].[dbo].[KK_Venus_Model_Pre_Run] as A, (select * from Scratch.dbo.KK_Fiscal_Calendar_Network_Model
+where DC_Type = 'DC') as Z
+  Where A.DC_name <> 'SFS'
+and A.Order_Day = z.Cal_date
+and A.Fiscal_Year >= 2018 -- only for the future years
+  group by A.[Fiscal_Year]
+      ,A.BRAND, A.[Modeled DC Name],z.Fiscal_Month, A.[Modeled DC] ) as TT
+
+
+
+
+select "Modeled DC", sum(demand ) from Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation
+ group by "Modeled DC"
+ order by "Modeled DC"
+
+-------------------------------
+
+
+---- Demand Pullling ------------------
+
+update A
+set A."Modeled DC Name" = B.DC
+
+from Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation as A, KK_DC_XREF as B
+where A."Modeled DC" = B.DC_ID
+
+
+select * from Scratch.dbo.KK_Demand_Rebalancing_Modeling_Validation
+
+order by Fiscal_year, fiscal_month
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------Validation Queries ends----------------------------------
+
+
+
+
+
+
+
+
+--- Capacity pull------------------------------
+
+--- Create the DF_Temp_excel_file
+
+
+
+
+
+select * from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date >= '2017-01-01'
+order by DC_id, cal_Date, Day_Hours
+
+
+---- capacity validation
+
+
+select cal_Date, sum(Hrly) from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date >= '2017-01-01'
+and Fiscal_Year = 2021
+and DC_name = 'WFC'
+group by cal_Date
+order by  cal_Date
+
+
+
+----- for capacity - demand rebalancing pull update the rebalancing file
+select Fiscal_Year, Fiscal_Month, DC_id, DC_name, Sum (Hrly) as Capacity from scratch.dbo.KK_Capacity_Modeling 
+where cal_Date >= '2017-01-29'
+group by Fiscal_Year, Fiscal_Month, Fiscal_Week,
+	  DC_id, DC_name
+	  order by DC_id, Fiscal_Year, Fiscal_Month
+
+
+
+---- Demand vs capacity query for volume vs capacity validation
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round(sum ([Modeled Order Units]) ,0) AS Demand, DATEDIFF(Day,B.Date_from,B.date_to) + 1 as No_of_days,
+'Demand' as Metrics_type
+FROM [Scratch].[dbo].[KK_Venus_Model_Pre_Run] AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B, scratch.dbo.KK_DC_XREF as C
+WHERE convert  (date, A.Order_Day) >= convert  (date,B.Date_from) and convert  (date, A.Order_Day) <= convert  (date,B.date_to)
+and   B.DC_name = (case when C.DC = 'ODC' then 'FFC-ODC' else C.Dc end)
+and A."Modeled DC" = C.DC_ID
+--and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is null
+
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario, DATEDIFF(Day,B.Date_from,B.date_to)
+
+union 
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round(sum ([Modeled Order Units]) ,0) AS Demand, DATEDIFF(Day,B.Date_from,B.date_to) + 1 as No_of_days,
+'Demand' as Metrics_type
+FROM [Scratch].[dbo].[KK_Venus_Model_Pre_Run] AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B, scratch.dbo.KK_DC_XREF as C
+WHERE convert  (date, A.Order_Day) >= convert  (date,B.Date_from) and convert  (date, A.Order_Day) <= convert  (date,B.date_to)
+and   B.DC_name = (case when C.DC = 'ODC' then 'FFC-ODC' else C.Dc end)
+and A."Modeled DC" = C.DC_ID
+--and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is not null
+
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario, DATEDIFF(Day,B.Date_from,B.date_to)
+
+
+union
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round (sum(Hrly) ,0) AS Capacity, DATEDIFF(Day,B.Date_from,B.date_to) + 1 as No_of_days,
+'Capacity' as Metrics_type
+FROM scratch.dbo.KK_Capacity_Modeling AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B
+WHERE convert  (date, A.Cal_date) >= convert  (date,B.Date_from) and convert  (date, A.Cal_date) <= convert  (date,B.date_to)
+and  A.Dc_name = B.DC_name
+and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is null
+
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario, DATEDIFF(Day,B.Date_from,B.date_to)
+
+union 
+
+SELECT B.DC_name, B.Fiscal_year, B.Scenario, Round (sum(Hrly) ,0) AS Capacity, DATEDIFF(Day,B.Date_from,B.date_to) + 1 as No_of_days,
+'Capacity' as Metrics_type
+FROM scratch.dbo.KK_Capacity_Modeling AS A, [dbo].[KK_Update_Capacity_ScenarioA] AS B
+WHERE convert  (date, A.Cal_date) >= convert  (date,B.Date_from) and convert  (date, A.Cal_date) <= convert  (date,B.date_to)
+and  A.Dc_name = B.DC_name
+and A.Day_hours in (7,8,9,10,11,12,13,14,15)
+ and Not_in_date  is not null
+  and convert  (date, A.Cal_date) <> convert  (date,Not_in_date)
+GROUP BY B.DC_name, B.Fiscal_year, B.Scenario, DATEDIFF(Day,B.Date_from,B.date_to)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Drop table scratch.[dbo].[KK_Venus_Data_Model_Final_run]
+select * into scratch.[dbo].[KK_Venus_Data_Model_Final_run] from (
+
+select  "Year",
+convert (date, Order_day) as Order_day ,
+Order_Hr,
+Zip,
+B.[Network_Alignment_id_Orig] as "Network Alignment",
+Dc_xref.DC_ID  as DC,
+Segment,
+C.[Ship_Option_id_Orig] as "Ship Option",
+D.Brand_id as Brand,
+"Ordered Units",
+Dc_xref.DC_ID  as "Modeled DC",
+C.[Ship_Option_id_Modeled] as "Modeled Ship Option",
+"Modeled Order Units",
+"Time to Promise",
+"Remaining Units",
+"Time fully Processed",
+Units_Processed1,
+Units_Processed_Final,
+No_of_Packages,
+No_of_Packages_final,
+Cost,
+Total_Cost,
+UPP,
+ E.[Geo_id_Orig] as  Geo,
+  Customer_Type,
+ 0 as Free_Speed,
+Dc_xref.DC_ID as DC_name,
+Modeled_Promise_time as Promise_time
+ from Scratch.dbo.KK_Venus_Model_Pre_Run as A, Scratch.[dbo].[KK_Network_Alignment_Xref] as B, Scratch.[dbo].[KK_Modeled_Ship_Option_Xref] as C, Scratch.[dbo].[KK_Brand_Xref] as D , Scratch.[dbo].[KK_Geo_Xref] as E, Scratch.dbo.KK_DC_XREF as DC_Xref
+
+ where A.[Network Alignment] = B.[Network_Alignment_Orig]
+ and A.[Old_Ship_Option]  = C.[Ship_Option_Orig]
+ and A.Brand = D.[Brand_Name]
+ and A.[Modeled DC Name] = DC_Xref.DC
+ and a.[Geo] =  E.[Geo_Orig]
+--and a.DC_name = 'SFS'
+ --and a.Year_Type = 'Base_Year'
+
+) as ZZ
+
+
+update scratch.[dbo].[KK_Venus_Data_Model_Final_run] 
+set [Modeled Order Units] = round([Modeled Order Units],3)
+
+------- Validation queries -------------------------------------
+
+select DC_name, sum("Modeled Order Units"), convert(date, Min(Order_day)) as Min_order_DAy, convert(date, Max(Order_day)) as Max_order_Day from scratch.[dbo].[KK_Venus_Data_Model_Final_run] 
+group by DC_name
+
+Select sum ("Modeled Order Units") from scratch.[dbo].[KK_Venus_Data_Model_Final_run]
+where Order_day <= ( select Date_to from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Base_Year')
+
+
+-- Future year validation
+
+Select sum ("Modeled Order Units") from scratch.[dbo].[KK_Venus_Data_Model_Final_run]
+where Order_day <= ( select Date_to from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year4')
+and Order_day >  ( select Date_to from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Year_Type = 'Future_Year3')
+
+
+
+--- Geo and Promise time validation
+
+Select Geo, Promise_time, sum ("Modeled Order Units") from scratch.[dbo].[KK_Venus_Data_Model_Final_run], [dbo].[KK_Fiscal_Calendar_Network_Model] as B
+
+
+where Order_day <= ( select Date_to from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2021)
+and Order_day >=  ( select Date_from from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2021)
+and order_day = b.Cal_Date
+and b.Special_Event = 'OFF_PEAK'
+and DC <> 8 
+group by Geo, Promise_time
+order by Promise_time
+
+Select Geo, Promise_time, sum ("Modeled Order Units") from scratch.[dbo].[KK_Venus_Data_Model_Final_run], [dbo].[KK_Fiscal_Calendar_Network_Model] as B
+
+
+where Order_day <= ( select Date_to from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2021)
+and Order_day >=  ( select Date_from from [dbo].[KK_Five_year_Attribute_Fiscal_Xref] where Fiscal_Year = 2021)
+and order_day = b.Cal_Date
+and b.Special_Event <>'OFF_PEAK'
+and DC <> 8 
+group by Geo, Promise_time
+order by Promise_time
+
+
+
+
+
+------- Validation queries -------------------------------------
+
+
+----- "Ship_Promise_Demand_Data" 
+
+
+
+
+
+
+
+------ Using final table, create 'Python' version of this table by converting everything to IDs using "xref" tables
+------ Final table is "Ship_Promise_Demand_Data_versionID" that can be converted to CSV for Python
+
+
+
+
+
+
+---------------- Adhoc analysis
+
+-- Upload the baclog file
+
+ Alter table [dbo].[KK_Baclog_alldcs]
+ Add Utilized_Cap float
+
+  Alter table [dbo].[KK_Baclog_alldcs]
+ Add Demand_during_8_15 float
+
+ 
+ alter table [dbo].[KK_Baclog_alldcs]
+ add cal_Date date
+
+
+  alter table [dbo].[KK_Baclog_alldcs]
+ add cal_date_2017 date
+
+
+
+
+ select * from KK_Capacity_Modeling
+
+ update A
+ set A.Utilized_Cap = B.Utilized_capacity *9
+ from [dbo].[KK_Baclog_alldcs] as A, KK_Capacity_Modeling as B
+ where A.Fiscal_Year = B.Fiscal_Year
+ and A.Fiscal_Week = B.Fiscal_Week
+ and A.Fiscal_Day = B.Fiscal_Day
+ and A.DC_id = B.DC_id
+ and a.Mod_hrs = b.Day_Hours
+
+ select * from Scratch.dbo.KK_Venus_Model_Pre_Run
+
+
+ Alter table Scratch.dbo.KK_Venus_Model_Pre_Run
+ Add Fiscal_Day int
+
+ select * from [dbo].[KK_Fiscal_Calendar_Network_Model]
+ where DC_type = 'DC'
+
+ update A
+ set A.Fiscal_Day = B.fiscal_DAy
+ from Scratch.dbo.KK_Venus_Model_Pre_Run as A, [dbo].[KK_Fiscal_Calendar_Network_Model] as B
+ where A.Order_Day = B.Cal_Date
+ and DC_type = 'DC'
+
+ update A
+ set A.Demand_during_8_15= B.demand
+ from [dbo].[KK_Baclog_alldcs] as A, (select Fiscal_Year, Fiscal_month, Fiscal_Week, Fiscal_Day, [Modeled DC], Sum(
+ "Modeled Order Units") as demand  from Scratch.dbo.KK_Venus_Model_Pre_Run where ORDER_HR in (8,9,10,11,12,13,14,15)
+ group by Fiscal_Year, Fiscal_month, Fiscal_Week, Fiscal_Day, [Modeled DC]) as B
+ where A.Fiscal_Year = B.Fiscal_Year
+ and A.Fiscal_Day = B.Fiscal_Day
+ and A.Fiscal_Week = B.Fiscal_Week
+ and A.DC_id = B.[Modeled DC]
+
+ select * from [dbo].[KK_Baclog_alldcs] 
+
+
+ update A
+ set A.cal_Date = B.Cal_date
+ from [dbo].[KK_Baclog_alldcs]  as A, KK_Fiscal_Calendar_Network_Model as B
+ where A.Fiscal_Year = B.Fiscal_Year
+ and A.Fiscal_Day = B.Fiscal_Day
+ and A.Fiscal_Week = B.Fiscal_Week
+
+
+
+ update A
+ set A.cal_Date_2017 = B.Cal_date
+ from [dbo].[KK_Baclog_alldcs]  as A, (select * from KK_Fiscal_Calendar_Network_Model  where fiscal_year = 2017) as B
+ --where A.Fiscal_Year = B.Fiscal_Year
+ where  A.Fiscal_Day = B.Fiscal_Day
+ and A.Fiscal_Week = B.Fiscal_Week
+
+select * from [dbo].[KK_Baclog_alldcs]
+ where Variable_Capacity_used = 'Y'
+ and Event_Network_Model = 'Off_Peak'
+ and Fiscal_Year = 2021
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
